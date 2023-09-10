@@ -1,0 +1,120 @@
+Import-Module Activedirectory
+Import-Module NTFSSecurity
+
+Function Get-Permission{
+    param(
+        # Path for checked
+        [Parameter(Mandatory=$true)] [string]$FolderPath,
+        # Cheking subfolders
+        [bool]$Recurse=$false,
+        #where save result of script, default path is user profile
+        [string]$ResultPath=""
+    )
+
+#initialing
+    if ($ResultPath -ne ""){
+        if(!(Test-Path $ResultPath)){
+            Write-Host $ResultPath " not exists"
+            return $null
+        }
+        #check if Path finished "\"
+        if(!$ResultPath.EndsWith("\")){
+            $ResultPath +="\"
+        }
+        $ACLPermission_Error=$ResultPath + "ACLPermission_Error.log"
+        $ACLPermission_PathLength=$ResultPath + "ACLPermission_PathLength.log"
+        $ACLPermission_ForbiddenCharacters=$ResultPath + "ACLPermission_ForbiddenCharacters.log"
+        $ACLPermission_Result=$ResultPath + "ACLPermission_Result.csv"
+    }
+    else{
+        $ACLPermission_Error="$env:windir\logs\Powershel\ACLPermission_Error.log"
+        $ACLPermission_PathLength="$env:windir\logs\Powershel\ACLPermission_PathLength.log"
+        $ACLPermission_ForbiddenCharacters="$env:windir\logs\Powershel\ACLPermission_ForbiddenCharacters.log"
+        $ACLPermission_Result=""
+    }
+   #check if Path finished "\"
+   if($FolderPath.EndsWith("\")){
+        $FolderPath = $FolderPath.Substring(0,$FolderPath.Length-1)
+    }
+    if (!(Test-Path $FolderPath)){
+        Write-Host $folderpath " have forbidden characters " '[<>:"|?*]'
+        $FolderPath|Out-File $ACLPermission_ForbiddenCharacters -Append
+        return $null
+    }
+    $resultList=@()
+    $resultList.Clear()
+    $FolderPath
+#process
+    try{
+        $permissionList = Get-NTFSAccess $FolderPath | where-object {$_.account -notlike "*domain admins*" -and $_.account -notlike "*administra*" -and $_.account -notlike "*system*"} | Select-Object *
+        foreach($permissionItem in $permissionList){
+            $newObject=""|select-object AccountType, Account,FullName,InheritanceEnabled,InheritedFrom,AccessControlType,AccessRights,IsInherited
+            $newObject.AccountType = $permissionItem.AccountType
+            $newObject.Account =$permissionItem.account.accountname.substring(`
+                                  ($permissionItem.account.accountname).IndexOf("\")+1,`
+                                  ($permissionItem.account.accountname).length-($permissionItem.account.accountname).indexof("\")-1)
+            $newObject.FullName = $permissionItem.FullName
+            $newObject.InheritanceEnabled=$permissionItem.InheritanceEnabled
+            $newObject.InheritedFrom=$permissionItem.InheritedFrom
+            $newObject.AccessControlType=$permissionItem.AccessControlType
+            $newObject.AccessRights=$permissionItem.AccessRights
+            $newObject.IsInherited=$permissionItem.IsInherited
+            $resultList += $newObject
+            if($ResultPath -ne ""){
+ #               #if filie not exists create file with header
+                if(!(Test-Path $ACLPermission_Result)){
+                    "AccountType;Account;FullName;InheritanceEnabled;InheritedFrom;AccessControlType;AccessRights;IsInherited"|Out-File $ACLPermission_Result
+                }
+ #               #saved information with delimiter ";"
+               $newObject.AccountType+";"+$newObject.Account+";"+$newObject.FullName+";"+$newObject.InheritanceEnabled+";"+$newObject.InheritedFrom+";"`
+                +$newObject.AccessControlType+";"+$newObject.AccessRights+";"+$newObject.IsInherited|Out-File $ACLPermission_Result -Append
+            }
+        }
+
+        if($Recurse){
+            try{
+                $subFolders=Get-ChildItem $FolderPath|where{$_.Attributes -eq "Directory"}| Select-Object fullname
+                foreach($subfolder in $subFolders){
+                    # check if path have more then 255 chars
+                    if($subfolder.FullName.length -ge 256){
+                        $subFolder.FullName + ";" + $subFolder.FullName.Length | Out-file $ACLPermission_PathLength -append 
+                    }
+                    # check if path have problematic chcaracters
+                    elseif($subfolder.FullName.contains("[") -or $subfolder.FullName.contains("]") -or`
+                           $subfolder.FullName.contains("|") -or $subfolder.FullName.contains("<") -or`
+                           $subfolder.FullName.contains(">") -or $subfolder.FullName.contains(":") -or`
+                           $subfolder.FullName.contains("*") -or $subfolder.FullName.contains("?")){
+                       $subfolder.FullNam|Out-File $ACLPermission_ForbiddenCharacters -Append
+                   }
+                    else{$resultList +=Get-Permission -FolderPath $subfolder.FullName -Recurse $Recurse -ResultPath $ResultPath}
+                }
+            }
+            catch{
+                (get-date).Tostring() + ‘ ‘ + "proces try in recurs" | Out-file $ACLPermission_Error -append 
+                (get-date).Tostring() + ‘ ‘ + $subfolder.fullname | Out-file $ACLPermission_Error -append 
+                (get-date).Tostring() + ‘ ‘ + $subfolder.fullname.length | Out-file $ACLPermission_Error -append 
+
+                $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.ItemName
+                (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $ACLPermission_Error -append 
+                (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $ACLPermission_Error -append            
+            }
+        }
+
+    }
+    catch{
+                 (get-date).Tostring() + ‘ ‘ + 'process try' | Out-file $ACLPermission_Error -append 
+               $ErrorMessage = $_.Exception.Message
+                $FailedItem = $_.Exception.ItemName
+                (get-date).Tostring() + ‘ ‘ + $errorMessage | Out-file $ACLPermission_Error -append 
+                (get-date).Tostring() + ‘ ‘ + $FailedItem | Out-file $ACLPermission_Error -append            
+    }
+ 
+
+return $resultList
+
+}
+
+#Function Using
+Get-Permission -FolderPath "<UNC Path>" -ResultPath "<PathforResult>" -Recurse $true
+Get-Permission -FolderPath "\\00file\Dane8" -ResultPath "C:\Users\marcin.adm\Desktop" -Recurse $true
