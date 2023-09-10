@@ -1,0 +1,18 @@
+$domains=Get-adforest |select -ExpandProperty Domains
+$Tabela=@()
+
+foreach($domain in $domains){
+    $Wynik=""|select Rodzaj,Domena,PoziomFunkcjonalnosci
+    $dom=Get-ADDomain $domain |select name,domainmode
+    $Wynik.Rodzaj="Domena"
+    $Wynik.Domena = $dom.name
+    $Wynik.PoziomFunkcjonalnosci = $dom.domainmode
+    $Tabela+=$Wynik
+}
+    $dom2=Get-ADForest|select name,Forestmode
+    $Wynik=""|select Rodzaj,Domena,PoziomFunkcjonalnosci
+    $Wynik.Rodzaj="Las"
+    $Wynik.Domena = $dom2.name
+    $Wynik.PoziomFunkcjonalnosci = $dom2.forestmode
+    $Tabela+=$Wynik
+$Tabela
