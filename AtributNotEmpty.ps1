@@ -6,7 +6,7 @@
 #----------------------------------------------------------------------
 
 #Case
-# We need All atributs with some value for specific user
+# We need Preview only attributes with some value
 
 
 # Result 1
