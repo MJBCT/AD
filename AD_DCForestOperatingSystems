@@ -1,0 +1,35 @@
+<#
+.SYNOPSIS
+    Showing Operating System from all DC's.
+
+.OUTPUTS
+    Operating System
+
+.EXAMPLE
+    Get-ADForestDCOperatingSystems
+
+#>
+Function Get-ADDCForestOperatingSystems{
+    try{
+    $ForestObj=Get-ADforest
+    $Tabel=@()
+    }
+    catch{
+        Write-Host $_.Exception.Message`n -ForegroundColor red
+        Write-Host $_.Exception.ItemName `n
+        write-host     
+    }
+    foreach($Domain in $ForestObj.Domains){
+        $DCs = Get-addomaincontroller -filter * -Server $domain |select Domain,HostName,OperatingSystem,IPV4Address
+
+        Foreach($DC in $DCs){
+			$Result=""|Select Domain,HostName,OperatingSystem,IPV4Address
+            $Result.Domain = $DC.Domain
+            $Result.HostName=$DC.HostName
+            $Result.OperatingSystem = $DC.OperatingSystem
+            $Result.IPV4Address = $DC.IPV4Address
+            $Tabel+=$Result
+        }
+    }
+    $Tabel
+}
