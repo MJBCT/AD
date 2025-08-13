@@ -5,9 +5,26 @@
 #CopyRight : MJBCT IT/Marcin Jędorowicz
 #----------------------------------------------------------------------
 
-#Case
-# We need count members of selected group
+<#
+.Synopsis
+   Script for counting group membership.
+.DESCRIPTION
+    This script is used to count membership in AD groups. It can be used for the full group name or a part of its name..
 
+.PARAMETER
+    - groupName - precisely GroupName
+
+    - groupPartName - part of the group name
+
+.EXAMPLE
+    .\AD_CountGroupMember.ps1 -groupName TestGroup
+    Counting Member of specific Groupname in ActiveDirecotry.
+
+.EXAMPLE
+    .\AD_CountGroupMember.ps1 -groupPartName PartName
+    Counting member of all group in Active Direcotry with specific part name
+#>
+[CmdletBinding()]
 param(
     #precisely group Name
     $groupName="", 
